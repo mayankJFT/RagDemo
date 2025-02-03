@@ -46,7 +46,7 @@ def get_env_variable(var_name: str) -> str:
 try:
     OPENAI_API_KEY = get_env_variable("OPENAI_API_KEY")
     PINECONE_API_KEY = get_env_variable("PINECONE_API_KEY")
-    PINECONE_ENVIRONMENT = get_env_variable("PINECONE_ENVIRONMENT")
+    PINECONE_ENVIRONMENT = 'us-east-1'
 except ValueError as e:
     logger.error(f"Configuration Error: {e}")
     raise
