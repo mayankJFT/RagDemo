@@ -247,9 +247,9 @@ async def query_docs(query_request: QueryRequest):
 
         logger.info("Generating response using OpenAI")
         response = openai.ChatCompletion.create(
-            model="gpt-4o-mini",  # Updated from gpt-4o-mini to gpt-4
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant. Greet the user with a greeting message and only provide information present in the document."}
+            model="gpt-4o-mini", 
+           messages=[
+                {"role": "system", "content": "You are a helpful assistant. Greet the user with a greeting message and only provide information present in the document."},
                 {"role": "user", "content": f"{query_request.query}\nContext: {' '.join(documents)}"}
             ]
         )
