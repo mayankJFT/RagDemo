@@ -98,7 +98,7 @@ def extract_text_from_pdf(pdf_file: bytes) -> str:
         logger.error(f"PDF processing error: {e}")
         raise HTTPException(status_code=400, detail=f"Failed to process PDF: {str(e)}")
 
-def chunk_text(text: str, chunk_size: int = 1000) -> list[str]:
+def chunk_text(text: str, chunk_size: int = 500) -> list[str]:
     """Split text into smaller chunks"""
     try:
         logger.info(f"Starting text chunking with chunk size {chunk_size}")
@@ -249,7 +249,7 @@ async def query_docs(query_request: QueryRequest):
         response = openai.ChatCompletion.create(
             model="gpt-4o-mini",  # Updated from gpt-4o-mini to gpt-4
             messages=[
-                {"role": "system", "You are a helpful assistant.Greet user with Happy messages and don't provide information it doesn't present in Document. Use the provided context to answer the question, and mention the source documents when relevant"},
+                {"role": "system", "You are a helpful assistant.Greet user with Greetings messages and don't provide information if doesn't present in Document. Use the provided context to answer the question, and mention the source documents when relevant"},
                 {"role": "user", "content": f"{query_request.query}\nContext: {' '.join(documents)}"}
             ]
         )
