@@ -11,6 +11,7 @@ import uuid
 import logging
 import asyncio
 import os
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -139,6 +140,35 @@ def get_embedding(text: str) -> list:
         logger.error(f"Error generating embedding: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate embedding: {str(e)}")
 
+def is_greeting(text: str) -> bool:
+    """Detect if the text is a greeting or small talk"""
+    # Common greeting patterns
+    greeting_patterns = [
+        r'^hi\b',
+        r'^hello\b',
+        r'^hey\b',
+        r'^greetings\b',
+        r'^good\s(morning|afternoon|evening|day)\b',
+        r'^how\s(are\syou|is\sit\sgoing)\b',
+        r'^what\'?s\sup\b',
+        r'^yo\b',
+        r'^howdy\b',
+        r'^welcome\b',
+        r'^nice\sto\smeet\syou\b',
+    ]
+    
+    # Check if any of the patterns match the beginning of the text
+    text_lower = text.lower().strip()
+    for pattern in greeting_patterns:
+        if re.search(pattern, text_lower):
+            return True
+    
+    # Check for short text that might be a greeting (less than 20 chars and no question marks)
+    if len(text) < 20 and '?' not in text:
+        return True
+    
+    return False
+
 async def process_single_pdf(file: UploadFile) -> dict:
     """Process a single PDF file and return its processing results"""
     try:
@@ -233,6 +263,18 @@ async def query_docs(query_request: QueryRequest):
     """Query the vector store and get relevant responses"""
     try:
         logger.info(f"Processing query: {query_request.query}")
+        
+        # Check if the query is a greeting
+        if is_greeting(query_request.query):
+            logger.info("Detected greeting message")
+            return {
+                "query": query_request.query,
+                "response": "Hello! I'm your document assistant. I can help answer questions about the documents you've uploaded. How can I assist you today?",
+                "query_type": "greeting",
+                "retrieved_documents": []
+            }
+        
+        # If not a greeting, proceed with normal query flow
         query_embedding = get_embedding(query_request.query)
         
         logger.info("Querying Pinecone index")
@@ -248,7 +290,7 @@ async def query_docs(query_request: QueryRequest):
             return {
                 "query": query_request.query,
                 "response": "I appreciate your question, but it appears to be outside the scope of the documents in our knowledge base. I can only provide information based on the documents that have been uploaded. Please consider rephrasing your question to focus on the available content, or upload additional relevant documents if needed.",
-                "relevant": False,
+                "query_type": "off_topic",
                 "retrieved_documents": []
             }
 
@@ -277,7 +319,7 @@ async def query_docs(query_request: QueryRequest):
         return {
             "query": query_request.query,
             "response": response["choices"][0]["message"]["content"],
-            "relevant": True,
+            "query_type": "document_query",
             "retrieved_documents": [
                 {"text": doc, "source": src, "similarity_score": score} 
                 for doc, src, score in zip(documents, sources, scores)
