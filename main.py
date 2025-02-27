@@ -242,15 +242,34 @@ async def query_docs(query_request: QueryRequest):
             include_metadata=True
         )
 
+        # Check if the query is relevant to indexed documents
+        if not results.matches or all(match.score < 0.65 for match in results.matches):
+            logger.info("Query appears to be unrelated to indexed documents")
+            return {
+                "query": query_request.query,
+                "response": "I appreciate your question, but it appears to be outside the scope of the documents in our knowledge base. I can only provide information based on the documents that have been uploaded. Please consider rephrasing your question to focus on the available content, or upload additional relevant documents if needed.",
+                "relevant": False,
+                "retrieved_documents": []
+            }
+
         documents = [match.metadata["text"] for match in results.matches]
         sources = [match.metadata.get("source", "unknown") for match in results.matches]
+        scores = [float(match.score) for match in results.matches]
 
         logger.info("Generating response using OpenAI")
         response = openai.ChatCompletion.create(
             model="gpt-4o-mini", 
-           messages=[
-                {"role": "system", "content": "You are a helpful and professional assistant.Only provide information explicitly available in the provided document."},
-                {"role": "user", "content": f"{query_request.query}\nContext: {' '.join(documents)}"}
+            messages=[
+                {"role": "system", "content": (
+                    "You are a helpful and professional document assistant. "
+                    "Your purpose is to provide accurate information from the uploaded documents only. "
+                    "If the user's query cannot be sufficiently answered with the provided context: "
+                    "1. Acknowledge the question politely "
+                    "2. Explain that you can only respond based on information in the uploaded documents "
+                    "3. If possible, suggest how they might rephrase their question to get information that is available "
+                    "Never make up information or respond with details not present in the context."
+                )},
+                {"role": "user", "content": f"User Query: {query_request.query}\n\nDocument Context: {' '.join(documents)}"}
             ]
         )
 
@@ -258,7 +277,11 @@ async def query_docs(query_request: QueryRequest):
         return {
             "query": query_request.query,
             "response": response["choices"][0]["message"]["content"],
-            "retrieved_documents": [{"text": doc, "source": src} for doc, src in zip(documents, sources)]
+            "relevant": True,
+            "retrieved_documents": [
+                {"text": doc, "source": src, "similarity_score": score} 
+                for doc, src, score in zip(documents, sources, scores)
+            ]
         }
     except Exception as e:
         logger.error(f"Error processing query: {e}")
